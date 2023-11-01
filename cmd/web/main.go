@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"database/sql"
 	"flag"
 	"github.com/alexedwards/scs/mysqlstore"
@@ -61,10 +62,22 @@ func main() {
 		sessionManager: sessionManager,
 	}
 
+	// Set up a tls.Config struct with preferred elliptic curves that have assembly implementations.
+	tlsConfig := &tls.Config{
+		CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256},
+	}
+
 	srv := &http.Server{
-		Addr:     *addr,
-		ErrorLog: errLog,
-		Handler:  app.routes(),
+		Addr:      *addr,
+		ErrorLog:  errLog,
+		Handler:   app.routes(),
+		TLSConfig: tlsConfig,
+		// keep-alive connections will be automatically closed after 1 min of inactivity
+		IdleTimeout: time.Minute,
+		// Close connection if headers or body aren't read within 5 sec, resulting in no HTTP(S) response
+		ReadTimeout: 5 * time.Second,
+		// Close connection if server writes to it for longer than the time specified
+		WriteTimeout: 10 * time.Second,
 	}
 
 	infoLog.Printf("Starting server on %s", *addr)
